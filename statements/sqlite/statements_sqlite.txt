@@ -1,0 +1,4 @@
+1. sqlite3 shop.db
+2. NA
+3. NA
+4. CRATE TABLE CATEGORIES (NAME VARCHAR(50));
