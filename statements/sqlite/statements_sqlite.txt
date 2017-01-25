@@ -4,45 +4,38 @@
 
 3. NA
 
-4.  CREATE TABLE CATEGORIES (NAME VARCHAR(50));
+4.  CREATE TABLE "category" (name varchar(50));
 
-5.  INSERT INTO CATEGORIES 
-    (NAME) VALUES ('Laptops');
-    INSERT INTO CATEGORIES 
-    (NAME) VALUES ('PCs');
-    INSERT INTO CATEGORIES (NAME) 
-    VALUES ('Keyboards');
+5.  INSERT INTO "category" (name) VALUES ('Laptops');
+    INSERT INTO "category" (name) VALUES ('PCs');
+    INSERT INTO "category" (name) VALUES ('Keyboards');
 
-6.  CREATE TABLE GOODS 
-    VALUES (NAME VARCHAR(50), CATEGORY VARCHAR(50), PRICE REAL);
+6.  CREATE TABLE "article" VALUES (name varchar(50), category varchar(50), price decimal);
 
-7.  INSERT INTO GOODS 
-    VALUES ('Mac', 'Laptops', '1.00');
-    INSERT INTO GOODS 
-    VALUES ('Dell', 'Laptops', '1.00');
-    INSERT INTO GOODS 
-    VALUES ('Razer keyboard', 'Keyboards', '1.00');
+7.  INSERT INTO "article" VALUES ('Mac', 'Laptops', '1.00');
+    INSERT INTO "article" VALUES ('Dell', 'Laptops', '1.00');
+    INSERT INTO "article" VALUES ('Razer keyboard', 'Keyboards', '1.00');
 
-8.  UPDATE GOODS 
-    SET PRICE = '3.50'
-    WHERE NAME = 'Mac';
+8.  UPDATE "article" 
+    SET price = '3.50'
+    WHERE name = 'Mac';
 
-9.  UPDATE GOODS
-    SET PRICE = 1.1 * PRICE;
+9.  UPDATE "article"
+    SET price = 1.1 * price;
     
-10. DELETE FROM GOODS
-    WHERE NAME = 'Dell';
+10. DELETE FROM "article"
+    WHERE name = 'Dell';
     
-11. SELECT * FROM GOODS
-    ORDER BY NAME;
+11. SELECT * FROM "article"
+    ORDER BY name;
     
-12. SELECT * FROM GOODS
-    ORDER BY PRICE DESC;
+12. SELECT * FROM "article"
+    ORDER BY price DESC;
     
-13. SELECT * FROM GOODS
-    ORDER BY PRICE
+13. SELECT * FROM "article"
+    ORDER BY price
     LIMIT 3;
     
-14. SELECT * FROM GOODS
-    ORDER BY PRICE DESC
+14. SELECT * FROM "article"
+    ORDER BY price DESC
     LIMIT 3;
