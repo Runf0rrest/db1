@@ -17,29 +17,29 @@ class Generator:
 
     def generate_statements(self):
         yaml_object = self.__parse_file()
+        serial_key = '{table_name}_id SERIAL PRIMARY KEY'
+        created_timestamp = '{table_name}_created INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER'
+        updated_timestamp = '{table_name}_updated INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER'
 
         for table_name, table_structure in yaml_object.items():
             table_name = table_name.lower()
-            create_statement = 'CREATE TABLE \"{0}\" (\n'.format(table_name)
-            fields = []
-
-            fields.append('\t{}_id int4 serial primary key'.format(table_name))
+            create_statement = 'CREATE TABLE \"{table_name}\" (\n{fields});'
+            fields = [serial_key.format(table_name=table_name),
+                      created_timestamp.format(table_name=table_name),
+                      updated_timestamp.format(table_name=table_name)]
 
             for fields_data in table_structure.values():
                 for field_name, field_type in fields_data.items():
-                    fields.append('\t{0}_{1} {2}'.format(table_name, field_name, field_type))
+                    fields.append('\t{table_name}_{field_name} {field_type}'
+                                  .format(table_name=table_name, field_name=field_name, field_type=field_type))
 
-            fields.append('\t{}_created timestamp(6)'.format(table_name))
-            fields.append('\t{}_updated timestamp(6)'.format(table_name))
-
-            create_statement += ',\n'.join(fields)
-            create_statement += '\n);\n'
-
-            self.__statements.append(create_statement)
+            fields = ','.join(fields)
+            self.__statements.append(create_statement.format(table_name=table_name, fields=fields))
             self.__generate_created_timpestamp_functions(table_name)
-            self.__generate_trigger_timestamp_created(table_name)
             self.__generate_trigger_timestamp_updated(table_name)
         return self.__statements
+
+
 
     def __generate_created_timpestamp_functions(self, table_name):
         function_timestamp_created = 'CREATE OR REPLACE FUNCTION {1}_{0}_timestamp()\n' \
