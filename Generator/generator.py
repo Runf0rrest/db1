@@ -18,8 +18,8 @@ class Generator:
     def generate_statements(self):
         yaml_object = self.__parse_file()
         base_fields = '{table_name}_id SERIAL PRIMARY KEY,\n' \
-                      '{table_name}_created INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER,\n' \
-                      '{table_name}_updated INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER'
+                      '{table_name}_created INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER),\n' \
+                      '{table_name}_updated INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER)'
 
         for table_name, table_structure in yaml_object.items():
             table_name = table_name.lower()
@@ -41,7 +41,7 @@ class Generator:
         function_timestamp_created = 'CREATE OR REPLACE FUNCTION update_{table_name}_timestamp()\n' \
                                      'RETURNS TRIGGER AS $$\n' \
                                      'BEGIN\n' \
-                                       'NEW.{table_name}_updated = now();\n' \
+                                       'NEW.{table_name}_updated = cast(extract(epoch from now()) AS INTEGER);\n' \
                                        'RETURN NEW;\n' \
                                      'END;\n' \
                                      '$$ language \'plpgsql\';\n'
@@ -53,7 +53,7 @@ class Generator:
                                     'BEFORE UPDATE\n' \
                                     'ON {table_name}\n' \
                                     'FOR EACH ROW\n' \
-                                    'EXECUTE PROCEDURE update_{table_name}_timestamp;\n'
+                                    'EXECUTE PROCEDURE update_{table_name}_timestamp();\n'
 
         self.__statements.append(trigger_timestamp_updated.format(table_name=table_name))
 
