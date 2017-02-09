@@ -37,7 +37,10 @@ class Entity(object):
             raise DatabaseError
 
         self.__load()
+        if name in self._columns:
+            return self.__fields[name]
 
+        raise AttributeError #TODO
         # check, if instance is modified and throw an exception
         # get corresponding data from database if needed
         # check, if requested property name is in current class
@@ -47,31 +50,44 @@ class Entity(object):
         pass
 
     def __setattr__(self, name, value):
+        self.__load()
+        if name in self._columns:
+            self.__fields[name] = value
         # check, if requested property name is in current class
         #    columns, parents, children or siblings and call corresponding
         #    setter with name and value as arguments or use default implementation
-        pass
 
     def __execute_query(self, query, args):
         # execute an sql statement and handle exceptions together with transactions
         pass
 
     def __insert(self):
+        insert_query = self.__insert_query.format(
+            table=self.__table,
+            columns=','.join(self.__fields.keys()),
+            placeholders=','.join(self.__fields.values())
+        )
+        self.__cursor.execute(insert_query)
+        self.__id = self.__cursor.lastrowid
         # generate an insert query string from fields keys and values and execute it
         # use prepared statements
         # save an insert id
         pass
 
     def __load(self):
-        if not self.__loaded:
-            self.__cursor.execute(self.__select_query.format(table=self.__table) % self.__id)
-            result = self.__cursor.fetchone()
+        if self.__loaded:
+            return
+        if self.__id is None:
+            raise DatabaseError()
 
-            if result is None:
-                raise NotFoundError
+        self.__cursor.execute(self.__select_query.format(table=self.__table) % self.__id)
+        result = self.__cursor.fetchone()
 
-            self.__loaded = True
-            self.__fields = result
+        if result is None:
+            raise NotFoundError()
+
+        self.__loaded = True
+        self.__fields = result
 
     def __update(self):
         # generate an update query string from fields keys and values and execute it
@@ -86,15 +102,26 @@ class Entity(object):
         pass
 
     def _get_column(self, name):
+        self.__load()
+        return self.__fields[name]
         # return value from fields array by <table>_<name> as a key
         pass
 
     def _set_column(self, name, value):
+        self.__load()
+        self.__fields[name] = value
         # put new value into fields array with <table>_<name> as a key
-        pass
 
     @classmethod
     def all(cls):
+        instances = []
+
+        cursor = cls.db.cursor(
+            cursor_factory=psycopg2.extras.DictCursor
+        )
+        query = cls.__list_query.format(table=cls.__name__.lower())
+        result = cursor.execute(query)
+
         # get ALL rows with ALL columns from corrensponding table
         # for each row create an instance of appropriate class
         # each instance must be filled with column data, a correct id and MUST NOT query a database for own fields any more
@@ -102,24 +129,29 @@ class Entity(object):
         pass
 
     def delete(self):
-        # execute delete query with appropriate id
-        pass
+        if self.__id is None:
+            raise DatabaseError
+        query = self.__class__.__delete_query.format(
+            table=self.__table
+        ) % self.__id
+        self.__cursor.execute(query)
 
     @property
     def id(self):
-        # try to guess yourself
+        return self.__id
         pass
 
     @property
     def created(self):
-        # try to guess yourself
-        pass
+        return self.__fields['created']
 
     @property
     def updated(self):
-        # try to guess yourself
-        pass
+        return self.__fields['updated']
 
     def save(self):
-        # execute either insert or update query, depending on instance id
-        pass
+        if self.__id is None:
+            self.__insert()
+            return
+        self.__update()
+

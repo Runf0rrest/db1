@@ -38,16 +38,6 @@ class User(Entity):
     _siblings = {}
 
 
+
 if __name__ == "__main__":
-    connect = psycopg2.connect('dbname=test_database user=test_user')
-    cursor = connect.cursor(
-        cursor_factory=psycopg2.extras.DictCursor
-    )
-    cursor.execute('select * from article where article_id = 1;')
-
-    section = Section()
-    section.title = "zalupa"
-    section.save()
-
-#    for section in Section.all():
- #       print (section.title)
+    print(Section.all())
