@@ -36,39 +36,36 @@ class Entity(object):
         if self.__modified:
             raise DatabaseError
 
-        self.__load()
-        if name in self._columns:
-            return self.__fields[name]
+        if self.__id is not None:
+            self.__load()
 
-        raise AttributeError #TODO
-        # check, if instance is modified and throw an exception
-        # get corresponding data from database if needed
-        # check, if requested property name is in current class
-        #    columns, parents, children or siblings and call corresponding
-        #    getter with name as an argument
-        # throw an exception, if attribute is unrecognized
-        pass
+        if name in self._columns:
+            return self.__fields[self.__table+'_'+ name]
 
     def __setattr__(self, name, value):
-        self.__load()
         if name in self._columns:
-            self.__fields[name] = value
-        # check, if requested property name is in current class
-        #    columns, parents, children or siblings and call corresponding
-        #    setter with name and value as arguments or use default implementation
+            if self.__id is not None:
+                self.__load()
+            column_name = self.__table + '_' + name
+            self.__fields[column_name] = value
+        else:
+            object.__setattr__(self, name, value)
 
     def __execute_query(self, query, args):
+        self.__cursor.execute(query, args)
         # execute an sql statement and handle exceptions together with transactions
-        pass
 
     def __insert(self):
+        placeholders = []
+        for field in self.__fields.keys():
+            placeholders.append('%({field})s'.format(field=field))
+
         insert_query = self.__insert_query.format(
             table=self.__table,
             columns=','.join(self.__fields.keys()),
-            placeholders=','.join(self.__fields.values())
+            placeholders=','.join(placeholders)
         )
-        self.__cursor.execute(insert_query)
-        self.__id = self.__cursor.lastrowid
+        self.__id = self.__cursor.execute(insert_query, self.__fields)
         # generate an insert query string from fields keys and values and execute it
         # use prepared statements
         # save an insert id
