@@ -48,12 +48,12 @@ class Entity(object):
                 self.__load()
             column_name = self.__table + '_' + name
             self.__fields[column_name] = value
+            self.__modified = True
         else:
             object.__setattr__(self, name, value)
 
     def __execute_query(self, query, args):
         self.__cursor.execute(query, args)
-        # execute an sql statement and handle exceptions together with transactions
 
     def __insert(self):
         placeholders = []
