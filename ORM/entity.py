@@ -67,6 +67,7 @@ class Entity(object):
             placeholders=','.join(placeholders)
         )
         self.__id = self.__execute_query(insert_query, self.__fields)
+        #TODO FETCH RESULTS
 
     def __load(self):
         if self.__loaded:
@@ -98,8 +99,6 @@ class Entity(object):
     def _get_column(self, name):
         self.__load()
         return self.__fields[name]
-        # return value from fields array by <table>_<name> as a key
-        pass
 
     def _set_column(self, name, value):
         self.__load()
@@ -114,7 +113,16 @@ class Entity(object):
             cursor_factory=psycopg2.extras.DictCursor
         )
         query = cls.__list_query.format(table=cls.__name__.lower())
-        result = cursor.execute(query)
+        cursor.execute(query)
+        result = cursor.fetchall()
+        for column_values in result:
+            instance = cls()
+            for column_name, column_value in zip(cls._columns, column_values) :
+                instance.__fields[column_name] = column_value
+            instance.__loaded = True
+#            instance.__id = instance.id
+            instances.append(instance)
+        return instances
 
         # get ALL rows with ALL columns from corrensponding table
         # for each row create an instance of appropriate class
@@ -132,16 +140,21 @@ class Entity(object):
 
     @property
     def id(self):
-        return self.__id
-        pass
+        self.__load()
+        field_name = self.__table + '_id'
+        return self.__fields[field_name]
 
     @property
     def created(self):
-        return self.__fields['created']
+        self.__load()
+        field_name = self.__table + '_created'
+        return self.__fields[field_name]
 
     @property
     def updated(self):
-        return self.__fields['updated']
+        self.__load()
+        field_name = self.__table + 'updated'
+        return self.__fields[field_name]
 
     def save(self):
         if self.__id is None:
