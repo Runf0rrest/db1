@@ -10,7 +10,7 @@ class NotFoundError(Exception):
 
 
 class Entity(object):
-    db = psycopg2.connect('dbname=test_database user=test_user')
+    db = psycopg2.connect('dbname=test_database user=test_user password=qwerty')
 
     # ORM part 1
     __delete_query    = 'DELETE FROM "{table}" WHERE {table}_id=%s'
@@ -33,13 +33,12 @@ class Entity(object):
         self.__table    = self.__class__.__name__.lower()
 
     def __getattr__(self, name):
-        if self.__modified:
-            raise DatabaseError
-
         if self.__id is not None:
             self.__load()
 
         if name in self._columns:
+            if self.__modified:
+                raise DatabaseError
             return self.__fields[self.__table+'_'+ name]
 
     def __setattr__(self, name, value):
@@ -53,7 +52,9 @@ class Entity(object):
             object.__setattr__(self, name, value)
 
     def __execute_query(self, query, args):
-        self.__cursor.execute(query, args)
+        query_result = self.__cursor.execute(query, args)
+        self.__class__.db.commit()
+        return query_result
 
     def __insert(self):
         placeholders = []
@@ -65,11 +66,7 @@ class Entity(object):
             columns=','.join(self.__fields.keys()),
             placeholders=','.join(placeholders)
         )
-        self.__id = self.__cursor.execute(insert_query, self.__fields)
-        # generate an insert query string from fields keys and values and execute it
-        # use prepared statements
-        # save an insert id
-        pass
+        self.__id = self.__execute_query(insert_query, self.__fields)
 
     def __load(self):
         if self.__loaded:
@@ -149,6 +146,6 @@ class Entity(object):
     def save(self):
         if self.__id is None:
             self.__insert()
-            return
-        self.__update()
-
+        else:
+            self.__update()
+        self.__modified = False

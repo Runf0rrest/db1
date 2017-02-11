@@ -41,7 +41,7 @@ class User(Entity):
 
 if __name__ == "__main__":
     section = Section()
-    section.title = 'zela'
+    section.title = 'shlyapa'
     section.save()
-    print (section.title)
 
+    print(section.id)
