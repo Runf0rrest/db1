@@ -4,6 +4,8 @@ import psycopg2.extras
 class DatabaseError(Exception):
     pass
 
+class EntityIsModifiedError(Exception):
+    pass
 
 class NotFoundError(Exception):
     pass
@@ -38,23 +40,21 @@ class Entity(object):
 
         if name in self._columns:
             if self.__modified:
-                raise DatabaseError
-            return self.__fields[self.__table+'_'+ name]
+                raise EntityIsModifiedError()
+            return self._get_column(name)
 
     def __setattr__(self, name, value):
         if name in self._columns:
             if self.__id is not None:
                 self.__load()
-            column_name = self.__table + '_' + name
-            self.__fields[column_name] = value
-            self.__modified = True
+            self._set_column(name, value)
         else:
             object.__setattr__(self, name, value)
 
     def __execute_query(self, query, args):
-        query_result = self.__cursor.execute(query, args)
+        print(type(args))
+        self.__cursor.execute(query, args)
         self.__class__.db.commit()
-        return query_result
 
     def __insert(self):
         placeholders = []
@@ -66,8 +66,9 @@ class Entity(object):
             columns=','.join(self.__fields.keys()),
             placeholders=','.join(placeholders)
         )
-        self.__id = self.__execute_query(insert_query, self.__fields)
-        #TODO FETCH RESULTS
+        self.__execute_query(insert_query, self.__fields)
+        self.__id = self.__cursor.fetchone()[0]
+
 
     def __load(self):
         if self.__loaded:
@@ -75,60 +76,56 @@ class Entity(object):
         if self.__id is None:
             raise DatabaseError()
 
-        self.__cursor.execute(self.__select_query.format(table=self.__table) % self.__id)
+        query = self.__select_query.format(table=self.__table)
+        self.__execute_query(query, [self.__id])
         result = self.__cursor.fetchone()
 
         if result is None:
             raise NotFoundError()
 
         self.__loaded = True
-        self.__fields = result
+        self.__fields = dict(result)
 
     def __update(self):
-        # generate an update query string from fields keys and values and execute it
-        # use prepared statements
-        pass
-
-    def _get_children(self, name):
-        children = []
-
-        # return an array of child entity instances
-        # each child instance must have an id and be filled with data
-        pass
+        columns = []
+        args = []
+        for column_name in self._columns:
+            col = self.__table + '_' + column_name + '=%s'
+            args.append(str(self._get_column(column_name)))
+            columns.append(col)
+        args.append(str(self.__id))
+        query = self.__update_query.format(
+            table=self.__table,
+            columns=','.join(columns)
+        )
+        self.__execute_query(query, args)
 
     def _get_column(self, name):
         self.__load()
-        return self.__fields[name]
+        return self.__fields[self.__table + '_' + name]
 
     def _set_column(self, name, value):
-        self.__load()
-        self.__fields[name] = value
-        # put new value into fields array with <table>_<name> as a key
+        self.__fields[self.__table + '_' + name] = value
+        self.__modified = True
 
     @classmethod
     def all(cls):
         instances = []
-
         cursor = cls.db.cursor(
             cursor_factory=psycopg2.extras.DictCursor
         )
         query = cls.__list_query.format(table=cls.__name__.lower())
         cursor.execute(query)
         result = cursor.fetchall()
+
         for column_values in result:
             instance = cls()
             for column_name, column_value in zip(cls._columns, column_values) :
                 instance.__fields[column_name] = column_value
             instance.__loaded = True
-#            instance.__id = instance.id
             instances.append(instance)
+            #instance.__id = instance.id
         return instances
-
-        # get ALL rows with ALL columns from corrensponding table
-        # for each row create an instance of appropriate class
-        # each instance must be filled with column data, a correct id and MUST NOT query a database for own fields any more
-        # return an array of istances
-        pass
 
     def delete(self):
         if self.__id is None:
@@ -140,21 +137,15 @@ class Entity(object):
 
     @property
     def id(self):
-        self.__load()
-        field_name = self.__table + '_id'
-        return self.__fields[field_name]
+        return self._get_column('id')
 
     @property
     def created(self):
-        self.__load()
-        field_name = self.__table + '_created'
-        return self.__fields[field_name]
+        return self._get_column('created')
 
     @property
     def updated(self):
-        self.__load()
-        field_name = self.__table + 'updated'
-        return self.__fields[field_name]
+        return self._get_column('updated')
 
     def save(self):
         if self.__id is None:
@@ -162,3 +153,4 @@ class Entity(object):
         else:
             self.__update()
         self.__modified = False
+        self.__load()
