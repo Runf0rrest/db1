@@ -52,7 +52,6 @@ class Entity(object):
             object.__setattr__(self, name, value)
 
     def __execute_query(self, query, args):
-        print(type(args))
         self.__cursor.execute(query, args)
         self.__class__.db.commit()
 
@@ -68,7 +67,6 @@ class Entity(object):
         )
         self.__execute_query(insert_query, self.__fields)
         self.__id = self.__cursor.fetchone()[0]
-
 
     def __load(self):
         if self.__loaded:
@@ -116,24 +114,24 @@ class Entity(object):
         )
         query = cls.__list_query.format(table=cls.__name__.lower())
         cursor.execute(query)
-        result = cursor.fetchall()
 
-        for column_values in result:
+        while True:
+            row = cursor.fetchone()
+            if row is None:
+                return instances
             instance = cls()
-            for column_name, column_value in zip(cls._columns, column_values) :
-                instance.__fields[column_name] = column_value
+            instance.__fields = row
             instance.__loaded = True
+            instance.__id = instance._get_column('id')
             instances.append(instance)
-            #instance.__id = instance.id
-        return instances
 
     def delete(self):
         if self.__id is None:
-            raise DatabaseError
-        query = self.__class__.__delete_query.format(
+            raise NotFoundError()
+        query = self.__delete_query.format(
             table=self.__table
-        ) % self.__id
-        self.__cursor.execute(query)
+        )
+        self.__execute_query(query, [self.__id])
 
     @property
     def id(self):
