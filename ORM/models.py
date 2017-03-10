@@ -40,6 +40,4 @@ class User(Entity):
 
 
 if __name__ == "__main__":
-    section = Section()
-    section.title = 'olololo'
-    section.save()
+    Section.all()
