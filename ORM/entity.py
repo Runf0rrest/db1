@@ -12,7 +12,7 @@ class NotFoundError(Exception):
 
 
 class Entity(object):
-    db = psycopg2.connect('dbname=test_database user=test_user password=qwerty')
+    db = None
 
     # ORM part 1
     __delete_query    = 'DELETE FROM "{table}" WHERE {table}_id=%s'
@@ -20,7 +20,12 @@ class Entity(object):
     __list_query      = 'SELECT * FROM "{table}"'
     __select_query    = 'SELECT * FROM "{table}" WHERE {table}_id=%s'
     __update_query    = 'UPDATE "{table}" SET {columns} WHERE {table}_id=%s'
-
+    
+    __parent_query    = 'SELECT * FROM "{table}" WHERE {parent}_id=%s'
+    __sibling_query   = 'SELECT * FROM "{siblings}" NATURAL JOIN "{join_table}" WHERE {table}_id=%s'
+    __update_children = 'UPDATE "{table}" SET {parent}_id=%s WHERE {table}_id IN ({children})'
+    
+    
     def __init__(self, id=None):
         if self.__class__.db is None:
             raise DatabaseError()
@@ -56,9 +61,9 @@ class Entity(object):
         self.__class__.db.commit()
 
     def __insert(self):
-        placeholders = []
-        for field in self.__fields.keys():
-            placeholders.append('%({field})s'.format(field=field))
+        placeholders = ['%({})s'.format(
+            field for fied in self.__fields.keys()
+            )]
 
         insert_query = self.__insert_query.format(
             table=self.__table,
@@ -88,7 +93,10 @@ class Entity(object):
         columns = []
         args = []
         for column_name in self._columns:
-            col = self.__table + '_' + column_name + '=%s'
+            col = '{0}_{1}=%s'.format(
+                self.__table,
+                self._get_column(column_name)
+                )
             args.append(str(self._get_column(column_name)))
             columns.append(col)
         args.append(str(self.__id))
@@ -114,7 +122,12 @@ class Entity(object):
         )
         query = cls.__list_query.format(table=cls.__name__.lower())
         cursor.execute(query)
-
+        
+        rows = cursor.fetchall()
+        for row in rows:
+            instance = cls(row[0])
+            instance.__fields = 
+            
         while True:
             row = cursor.fetchone()
             if row is None:
@@ -152,3 +165,34 @@ class Entity(object):
             self.__update()
         self.__modified = False
         self.__load()
+    
+    def _get_children(self, name):
+        query = self.__class__.__parent_query.format(
+            parrent=self.__table
+            )
+        for child in children:
+            self.__execute_query(query, [self.__id])
+            for column in self.__cursor.fetchall():
+                
+        # return an array of child entity instances
+        # each child instance must have an id and be filled with data
+        pass
+    
+    def _get_parent(self, name):
+        # ORM part 2
+        # get parent id from fields with <name>_id as a key
+        # return an instance of parent entity class with an appropriate id
+        pass
+
+    def _get_siblings(self, name):
+        # ORM part 2
+        # get parent id from fields with <name>_id as a key
+        # return an array of sibling entity instances
+        # each sibling instance must have an id and be filled with data
+        pass
+
+    def _set_parent(self, name, value):
+        # ORM part 2
+        # put new value into fields array with <name>_id as a key
+        # value can be a number or an instance of Entity subclass
+        pass

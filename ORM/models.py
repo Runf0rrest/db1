@@ -40,4 +40,5 @@ class User(Entity):
 
 
 if __name__ == "__main__":
-    Section.all()
+    Entity.db = psycopg2.connect('dbname=test_database user=postgres password=admin')
+    
