@@ -1,59 +1,78 @@
 import yaml
-
+from sql_templates import Statements
+from collections import defaultdict
+from sortedcontainers import SortedList
 
 class Generator:
-
+    
+   
     def __init__(self, file_path):
         self.__file_path = file_path
-        self.__statements = []
+        self.__yaml_object = None
+        self.__one_to_many = defaultdict(list)
+        self.__many_to_many = []
 
     def __parse_file(self):
-        file = open(self.__file_path)
-        parsing_result = yaml.safe_load(file)
-
-        file.close()
-
-        return parsing_result
-
-    def generate_statements(self):
-        yaml_object = self.__parse_file()
-        base_fields = '{table_name}_id SERIAL PRIMARY KEY,\n' \
-                      '{table_name}_created INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER),\n' \
-                      '{table_name}_updated INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER)'
-
-        for table_name, table_structure in yaml_object.items():
-            table_name = table_name.lower()
-            create_statement = 'CREATE TABLE \"{table_name}\" (\n{fields}\n);\n'
-            fields = [base_fields.format(table_name=table_name)]
-
-            for fields_data in table_structure.values():
-                for field_name, field_type in fields_data.items():
-                    fields.append(',\n{table_name}_{field_name} {field_type}'
-                                  .format(table_name=table_name, field_name=field_name, field_type=field_type))
-
-            fields = ''.join(fields)
-            self.__statements.append(create_statement.format(table_name=table_name, fields=fields))
-            self.__generate_created_timpestamp_functions(table_name)
-            self.__generate_trigger_timestamp_updated(table_name)
-        return self.__statements
-
-    def __generate_created_timpestamp_functions(self, table_name):
-        function_timestamp_created = 'CREATE OR REPLACE FUNCTION update_{table_name}_timestamp()\n' \
-                                     'RETURNS TRIGGER AS $$\n' \
-                                     'BEGIN\n' \
-                                       'NEW.{table_name}_updated = cast(extract(epoch from now()) AS INTEGER);\n' \
-                                       'RETURN NEW;\n' \
-                                     'END;\n' \
-                                     '$$ language \'plpgsql\';\n'
-
-        self.__statements.append(function_timestamp_created.format(table_name=table_name))
-
-    def __generate_trigger_timestamp_updated(self, table_name):
-        trigger_timestamp_updated = 'CREATE TRIGGER \"{table_name}_update\"\n' \
-                                    'BEFORE UPDATE\n' \
-                                    'ON {table_name}\n' \
-                                    'FOR EACH ROW\n' \
-                                    'EXECUTE PROCEDURE update_{table_name}_timestamp();\n'
-
-        self.__statements.append(trigger_timestamp_updated.format(table_name=table_name))
-
+        with open(self.__file_path, 'r') as file:
+            self.__yaml_object = yaml.safe_load(file)
+            
+    def __generate_columns(self, table_name):
+        for column_name, colmn_type in self.__yaml_object[table_name]['fields'].items():
+            yield '\t{0}_{1} {2},'.format(
+                table_name.lower(),
+                column_name,
+                colmn_type
+            )
+    
+    def __get_inverted_relation(self, table, related_table):
+        return self.__yaml_object[related_table]['relations'][table]
+    
+    def __parse_relations(self, table):
+        for related_table, relation in self.__yaml_object[table]['relations'].items():
+            inverted_relation = self.__get_inverted_relation(table, related_table)
+            
+            if inverted_relation != 'many':
+                continue
+            if relation == 'one':
+                self.__one_to_many[table.lower()].append(related_table.lower())
+            elif relation == 'many':
+                if (related_table, table) not in self.__many_to_many:
+                    self.__many_to_many.append((table, related_table))
+    
+    def __generate_parrent_columns(self, parrents):
+        for parrent in parrents:
+            yield Statements.ADD_COLUMN.format(parrent=parrent)
+     
+    def __generate_one_to_many_relations(self):
+        for child, parrents in self.__one_to_many.items():
+            parrent_collumns = '\n'.join(self.__generate_parrent_columns(parrents))
+            yield Statements.ALTER_STATEMENT.format(
+                child=child,
+                references=parrent_collumns
+                )
+        
+    def __generate_many_to_many_relations(self):
+        for relation in self.__many_to_many:
+            yield Statements.CREATE_JUNCTION_TABLE.format(
+                relation[0].lower(),
+                relation[1].lower()
+                )
+    
+    def generate(self):
+        self.__parse_file()
+        for table_name in self.__yaml_object.keys():
+            name = table_name.lower()
+            self.__parse_relations(table_name)
+                            
+            yield Statements.CREATE_STATEMENT.format(
+                table_name=name,
+                columns="\n".join(self.__generate_columns(table_name))
+            )
+            yield Statements.FUNCTION_UPDATED.format(
+                table_name=name
+            )
+            yield Statements.TRIGGER_UPDATED.format(
+                table_name=name
+            )
+        yield ''.join(self.__generate_one_to_many_relations())
+        yield ''.join(self.__generate_many_to_many_relations())

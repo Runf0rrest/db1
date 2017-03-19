@@ -1,0 +1,8 @@
+CREATE_TABLE_STATEMENT = '''
+CREATE TABLE '{table_name}' (
+    {table_name}_id SERIAL PRIMARY KEY,
+{columns}
+    {table_name}_created INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER),
+    {table_name}_updated INTEGER NOT NULL DEFAULT cast(extract(epoch from now()) AS INTEGER)
+);
+'''
