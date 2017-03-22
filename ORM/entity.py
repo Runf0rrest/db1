@@ -25,6 +25,7 @@ class Entity(object):
     __sibling_query   = 'SELECT * FROM "{siblings}" NATURAL JOIN "{join_table}" WHERE {table}_id=%s'
     __update_children = 'UPDATE "{table}" SET {parent}_id=%s WHERE {table}_id IN ({children})'
     
+
     
     def __init__(self, id=None):
         if self.__class__.db is None:
@@ -62,14 +63,15 @@ class Entity(object):
 
     def __insert(self):
         placeholders = ['%({})s'.format(
-            field for fied in self.__fields.keys()
-            )]
+            field) for field in self.__fields.keys()
+            ]
 
         insert_query = self.__insert_query.format(
             table=self.__table,
             columns=','.join(self.__fields.keys()),
             placeholders=','.join(placeholders)
         )
+        
         self.__execute_query(insert_query, self.__fields)
         self.__id = self.__cursor.fetchone()[0]
 
@@ -106,37 +108,31 @@ class Entity(object):
         )
         self.__execute_query(query, args)
 
+    def full_name(self, column):
+        return '{0}_{1}'.format(self.__table, column)
+
     def _get_column(self, name):
         self.__load()
-        return self.__fields[self.__table + '_' + name]
+        return self.__fields[self.full_name(name)]
 
     def _set_column(self, name, value):
-        self.__fields[self.__table + '_' + name] = value
+        self.__fields[self.full_name(name)] = value
         self.__modified = True
 
     @classmethod
-    def all(cls):
-        instances = []
+    def all(cls):        
         cursor = cls.db.cursor(
             cursor_factory=psycopg2.extras.DictCursor
         )
         query = cls.__list_query.format(table=cls.__name__.lower())
-        cursor.execute(query)
+        cursor.execute(query) 
         
-        rows = cursor.fetchall()
-        for row in rows:
-            instance = cls(row[0])
-            instance.__fields = 
-            
-        while True:
-            row = cursor.fetchone()
-            if row is None:
-                return instances
+        for row in cursor.fetchall():
             instance = cls()
-            instance.__fields = row
+            instance.__fields = dict(row)
             instance.__loaded = True
-            instance.__id = instance._get_column('id')
-            instances.append(instance)
+            yield instance                 
+            
 
     def delete(self):
         if self.__id is None:
@@ -167,22 +163,34 @@ class Entity(object):
         self.__load()
     
     def _get_children(self, name):
+        self.__load()
+        entity_children = {cls.__name__: cls for cls in Entity.__subclasses__()}
+        
         query = self.__class__.__parent_query.format(
-            parrent=self.__table
-            )
-        for child in children:
-            self.__execute_query(query, [self.__id])
-            for column in self.__cursor.fetchall():
-                
+        parent=self.__table,
+        table=name.lower()
+        )
+        self.__execute_query(query, [self.__id])
+        for row in self.__cursor.fetchall():
+            instance = entity_children[name]
+            instance.__fields = dict(row)
+            instance.__loaded = True
+            yield instance
+        
         # return an array of child entity instances
         # each child instance must have an id and be filled with data
-        pass
     
     def _get_parent(self, name):
+        parrent_id = self.__fields['{0}_id'.format(name)]
+        entity_children = {cls.__name__: cls for cls in Entity.__subclasses__()}
+        instance = entity_children[name](parrent_id)
+        instance.__load()
+        return instance
+        
+        
         # ORM part 2
         # get parent id from fields with <name>_id as a key
         # return an instance of parent entity class with an appropriate id
-        pass
 
     def _get_siblings(self, name):
         # ORM part 2
@@ -192,6 +200,9 @@ class Entity(object):
         pass
 
     def _set_parent(self, name, value):
+        if hasattr(value, '__id'):
+            value = value.__id
+        self.__fields['{0}_id'.format(name)] = value
         # ORM part 2
         # put new value into fields array with <name>_id as a key
         # value can be a number or an instance of Entity subclass
