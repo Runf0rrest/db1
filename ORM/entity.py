@@ -172,7 +172,7 @@ class Entity(object):
         )
         self.__execute_query(query, [self.__id])
         for row in self.__cursor.fetchall():
-            instance = entity_children[name]
+            instance = entity_children[name]()
             instance.__fields = dict(row)
             instance.__loaded = True
             yield instance
@@ -193,11 +193,30 @@ class Entity(object):
         # return an instance of parent entity class with an appropriate id
 
     def _get_siblings(self, name):
+        entity_children = {cls.__name__: cls for cls in Entity.__subclasses__()}
+        
+        query = self.__class__.__sibling_query.format(
+            siblings=self.__table,
+            join_table=name.lower(),
+            table=self.__table
+        )
+        self.__execute_query(query, [self.__id])
+        for row in self.__cursor.fetchall():
+            row = dict(row)
+            instance = entity_children[name]()
+            for column in instance._columns:
+                name = instance.full_name(column)
+                instance.__fields[name] = row[name]
+            instance.id = row[instance.full_name('id')]
+            instance.created = row[instance.full_name('created')]
+            instance.updated = row[instance.full_name('updated')]
+            instance.__loaded = True
+            yield instance
+        
         # ORM part 2
         # get parent id from fields with <name>_id as a key
         # return an array of sibling entity instances
         # each sibling instance must have an id and be filled with data
-        pass
 
     def _set_parent(self, name, value):
         if hasattr(value, '__id'):

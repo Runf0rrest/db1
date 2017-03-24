@@ -60,7 +60,13 @@ if __name__ == "__main__":
     # post._set_parent('category', 4)
     # post.save()
     
-    category = Category(4)
-    for child in category._get_children('Post'):
-        print (child.title)
+    tag = Tag(1)
+    for p in tag._get_siblings('Post'):
+        print(p)
+    # tag.name = 'zalupa'
+    # tag.save()
+    
+    # category = Category(4)
+    # for child in category._get_children('Post'):
+    #     print (child.title)
     
